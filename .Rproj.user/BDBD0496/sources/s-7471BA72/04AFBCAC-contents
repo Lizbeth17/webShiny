@@ -1,0 +1,204 @@
+---
+title: "Población: ¿cuál es su comportamiento en México?"
+author: "Karen Lizbeth Sanchez Florencio"
+date: "11/1/2022"
+output: 
+html_documen: 
+toc: true
+toc_float: true
+theme: "superhero"
+pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introducción 
+
+Lo que se pretende con este trabajo de tesis es ajustar la distribución de la población guerrerense mediante coeficientes de B-spline, cabe destacar que es de gran ayuda al realizar análisis cuyos conjuntos de datos son bastante grandes, lo cual hace que algunas herramientas usadas de manera convencional sean poco efectivas. Esto se puede ver cuando se da un aumento de manera exponencial en el volumen de los espacios lo que causa dispersión en los datos. 
+
+Una de las ventajas de trabajar coeficientes de B-spline es que se reducen las dimensiones,entonces,el objetivo es poder hacer que los datos funcionales se caractericen mediante dichos coeficientes y poder utilizarlos para hacer comparaciones y monitoreos.
+
+Es bien sabido que las funciones modelan muchos e importantes procesos, por lo que hacer una extracción de información de manera optima es de gran utilidad,de manera que es intuitivo el avance que se esta teniendo en el uso de las funciones de variables reales en los distintos ámbitos de investigación.Los métodos matemáticos que hacen esto posible se encuentran en la rama de Análisis de datos funcionales.
+
+## ¿ Por qué?
+Si bien a lo largo de los años se han hecho proyecciones de las poblaciones mediante los datos que se recolectan en los censos de población que se hacen cada seis años, el hecho de hacer manejo de tan gran cantidad de datos hace que los procesos sean más largos y complicados según los métodos aplicados. Por lo que nuestra intención es hacer estas proyecciones de una manera más optima. 
+
+Debido a que el uso de el análisis de datos funcionales es una herramienta estadística poco conocida e implementada en el estado, surgió la curiosidad e interés para realizar su estudio y aplicación, de una forma que se nos de una nueva perspectiva del comportamiento de la distribución del estado. En un caso más amplio, si es posible, ayudar al desarrolllo y aplicación de los métodos multivariados.
+
+Con los resultados obtenidos poder establecer tal vez algunas sugerencias a nivel gubernamental y brindar  un nuevo tema de interés a la comunidad estudiantil.
+
+## Base de datos 
+Los datos aquí usados fueron obtenidos de la página oficial del [INEGI](https://www.inegi.org.mx/temas/estructura/#Tabulados) que cuentan con 2 variables cuando se trata de la densidad de poblacion y 5 de la poblacion por estado.
+
+```{r,results='hide',warning=FALSE,message=FALSE,echo=FALSE}
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(expss)
+library(DT)
+library(summarytools)
+library(rgdal)
+library(leaflet)
+library(sp)
+library(sf)
+library(jsonlite)
+library(tmap) 
+library(base)
+library(pryr)
+library(reshape2) 
+library(plyr)
+library(plotly)
+estados2<-readOGR("México_Estados.shp")
+municipios2<-readOGR("gro_municipio.shp")
+datos2<-fromJSON("inegi-lista-estados-master/cities/12.json")
+densidad<-read_excel("Población_07.xlsx",
+                     range = "a5:b36",
+                     col_names = c("Estado","Densidad"))
+poblacion<-read_excel("Poblacion_01.xlsx",
+                      range = "a6:e764",
+                      col_names = c("Estado","Edad","Total","Hombre","Mujer"))
+municipios <- read.csv("conjunto_de_datos/conjunto_de_datos_iter_12CSV20.csv")
+municipios<- municipios[municipios$NOM_LOC== "Total del Municipio",]
+municipios<-municipios[,10:12]
+municipios$POBTOT<-as.numeric(municipios$POBTOT)
+municipios$POBFEM<-as.numeric(municipios$POBFEM)
+municipios$POBMAS<-as.numeric(municipios$POBMAS)
+```
+ 
+Al ya tener nuestras bases de datos limpias podemos realizar los procedimientos que deseemos, como por ejemplo los siguientes mapas que cuentan con la informacion acerca de la población.
+
+
+Dado que es de nuestro interés la distribución poblacional de acuerdo a los indeces demográficos de sexo y edad, a continación realizaremos un mapa del país con los datos de la poblacion por sexo, ademas de la densidad de población que tiene cada estado y después una piramide poblacional.
+
+```{r, echo=FALSE,fig.align='center',fig.height=5,fig.width=7,warning=FALSE,message=FALSE}
+
+
+i<-c(2,3,18,14,1,11,22,13,16,15,9,6,17,31,4,21,23,29,12,20,27,7,26,8,5,25,10,32,24,19,28,30)
+
+pob<-poblacion[!(poblacion$Estado == "Estados Unidos Mexicanos"),]
+pob<-pob[pob$Edad==0,]
+estados2$poblacion<-unlist(pob[i,3],use.names = FALSE)
+estados2$pobfem<-unlist(pob[i,5],use.names = FALSE)
+estados2$pobmas<-unlist(pob[i,4],use.names = FALSE)
+estados2$densidad<-unlist(densidad[i,2],use.names = FALSE)
+estados2$ESTADO<-unlist(pob[i,1],use.names = FALSE)
+
+bins<-seq(0,18,2)
+pal <- colorBin("YlOrRd", domain = estados2$poblacion/1000000, bins = bins)
+leaflet(estados2) %>% addProviderTiles("Esri.WorldTerrain") %>% 
+  addPolygons(
+    smoothFactor = 0.8,
+    fillColor = ~pal(poblacion/1000000),
+    weight = 2,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = highlightOptions(
+      weight = 2,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = sprintf(
+      "<strong>%s</strong><br/>Población Total: %s<br/>Población femenina: %s<br/>población masculina: %s<br/>Presonas / km<sup>2</sup> : %s",estados2$ESTADO,estados2$poblacion,estados2$pobfem,estados2$pobmas,estados2$densidad) %>% lapply(htmltools::HTML),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")) %>%
+  addLegend(pal = pal, values = ~poblacion/1000000, opacity = 0.7, title ="Personas por millon",
+            position = "bottomleft") %>% 
+  addMarkers(lng = -100,lat = 35,label = "Mapa de México  ",labelOptions = labelOptions(noHide = T,direction = "bottom",
+                                  style = list(
+                                    "color"="orange",
+                                    "font-family"="serif",
+                                    "font-style"="italic",
+                                    "font-size"="25px"
+                                  )))
+
+ 
+
+
+```
+Como se puede observar los estados del centro del país cuentan con una gran densidad de habitantes (lo comprobamos al ver las densidades marcadas)
+
+```{r, echo=FALSE,fig.align='center',fig.height=5,fig.width=7,warning=FALSE,message=FALSE}
+p<-poblacion[!(poblacion$Edad==0),]
+p<-p[p$Estado== "Estados Unidos Mexicanos",]
+p2<-p%>% mutate(H=Hombre/sum(Hombre)*100,M=Mujer/sum(Mujer)*100) %>% select(Edad,H,M)
+lbls<-c("Total",paste(seq(0,95,5),seq(4,99,5),sep = "-"),"100 y más", "No especificado")
+lbls
+p2$Edad<-factor(p2$Edad,labels = lbls)
+pop<-p2 %>% gather(sexo,p_edad,-1)
+g<-ggplot(pop,aes(x=Edad,fill=sexo,
+               y=ifelse(sexo=="H",-p_edad,p_edad)))+ 
+  geom_bar(stat = "identity")+ 
+  scale_y_continuous(limits = max(pop$p_edad)*c(-1,1),labels = abs) + 
+  labs(y= "Porcentajes por edades quinquenales")+
+  coord_flip()
+ggplotly(g)
+
+
+```
+ Y ahora se presenta un mapa del estado respecto a sus municipios  
+```{r,echo=FALSE,fig.align='center',fig.height=5,fig.width=7,warning=FALSE}
+j<-c(66,47,13,35,15,60,77,3,4,39,72,59,37,22,38,30,12,11,74,29,23,20,51,73,36,16,65,81,70,67,14,44,28,5,40,32,31,56,68,8,27,2,25,76,24,78,1,62,42,52,17,64,18,7,61,80,49,19,71,43,54,57,63,21,58,79,46,69,41,48,9,26,34,53,45,33,55,6,10,50,75)
+municipios2$NOMGEO<-datos2[j,5]
+municipios2$poblacion<-municipios[j,1]
+municipios2$pobfem<-municipios[j,2]
+municipios2$pobmas<-municipios[j,3]
+bins3<-c(seq(0,12,1),Inf)
+pal3 <- colorBin("YlOrRd", domain = municipios2$poblacion/10000, bins = bins3)
+leaflet(municipios2) %>% addProviderTiles("Esri.WorldTerrain") %>% 
+  addPolygons(
+    smoothFactor = 0.8,
+    fillColor = ~pal3(poblacion/10000),
+    weight = 2,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = highlightOptions(
+      weight = 2,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = sprintf(
+      "<strong>%s</strong><br/>Población Total: %s<br/>Población femenina: %s<br/>población masculina: %s",municipios2$NOMGEO,municipios2$poblacion,municipios2$pobfem,municipios2$pobmas) %>% lapply(htmltools::HTML),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")) %>%
+  addLegend(pal = pal3, values = ~poblacion/10000, opacity = 0.7, title ="Habitantes por 10000",
+            position = "bottomleft")%>% 
+  addMarkers(lng = -100,lat = 15,label = "Mapa de Guerrero 1",labelOptions = labelOptions(noHide = T,direction = "bottom",
+                                  style = list(
+                                    "color"="orange",
+                                    "font-family"="serif",
+                                    "font-style"="italic",
+                                    "font-size"="25px"
+                                  )))
+ 
+```
+
+Como se puede observar en el mapa de Guerrero 1 los municipios con más afluencia turística cuentan con una mayor población a diferencia de los municipios mas marginados.
+
+a continuación veremos una piramide de población.
+```{r,echo=FALSE,fig.align='center',fig.height=5,fig.width=7,warning=FALSE}
+p1<-poblacion[!(poblacion$Edad==0),]
+p1<-p1[p1$Estado== "Guerrero",]
+p21<-p1%>% mutate(H=Hombre/sum(Hombre)*100,M=Mujer/sum(Mujer)*100) %>% select(Edad,H,M)
+p1$Edad<-factor(p1$Edad,labels = lbls)
+pop2<-p21 %>% gather(sexo,p_edad,-1)
+g2<-ggplot(pop2,aes(x=Edad,fill=sexo,
+               y=ifelse(sexo=="H",-p_edad,p_edad)))+ 
+  geom_bar(stat = "identity")+ 
+  scale_y_continuous(limits = max(pop2$p_edad)*c(-1,1),labels = abs) + 
+  labs(y= "Porcentajes por edades quinquenales")+
+  coord_flip()
+ggplotly(g2)
+
+```
+

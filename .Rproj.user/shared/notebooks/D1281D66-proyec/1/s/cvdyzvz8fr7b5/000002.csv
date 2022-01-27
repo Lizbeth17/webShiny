@@ -1,0 +1,22 @@
+"0","library(readxl)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(expss)
+library(DT)
+library(summarytools)
+library(rgdal)
+library(leaflet)
+library(sp)
+library(sf)
+library(jsonlite)
+library(tmap) 
+library(base)
+library(pryr)
+library(reshape2) 
+library(plyr)
+library(plotly)
+estados2<-readOGR(""México_Estados.shp"")
+"
+"2","Error in ogrListLayers(dsn = dsn) : Cannot open data source
+"

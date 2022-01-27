@@ -1,0 +1,4 @@
+"0","estados2<-readOGR(""México_Estados.shp"")
+"
+"2","Error in ogrListLayers(dsn = dsn) : Cannot open data source
+"
